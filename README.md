@@ -6,6 +6,20 @@
 
 このプロジェクトは、血管壁の界面位置の時間発展を記述する偏微分方程式を数値的に解くことで、血管の形態変化をシミュレーションします。特に、炎症時の細胞間接着の減少や、周辺組織との相互作用を考慮したモデルです。
 
+## 進捗
+
+- **2025-12-04**
+  - Git のパス問題を解消し、`git pull` で最新状態に更新
+  - アニメーション保存の改善: `export_vessel_animation` を改良し、ffmpeg 非インストール環境では GIF 保存に自動切り替え
+  - モジュール分割: モデル本体の関数を `vessel_model.py` に分離（`TwoVesselModel`, `plotVessel`, `export_vessel_animation`）
+  - パラメータサーチ用スクリプト追加:
+    - `param_search_ks.py`: `ks=0〜9` 掃引
+    - `param_search_sigma.py`: `ks=0` 固定、`sigma=[1,10,100]` を比較
+  - デフォルトパラメータ変更: `vessel_model.py` 内でノイズ強度のデフォルトを `sigma=4` に変更
+  - `EW.ipynb` 追加: 1 次元 EW（Edwards–Wilkinson）方程式の簡易シミュレーション/検証用
+
+※詳細ログは `history.md` を参照してください。
+
 ## 支配方程式
 
 4つの界面位置 $h_1, h_2, h_3, h_4$ の時間発展は以下の偏微分方程式で記述されます：
