@@ -212,106 +212,132 @@ def euler_maruyama(u0, v0, par, sigma_u, sigma_v,
 
 
 # ============================================================
-# メイン
+# 描画ヘルパー（1条件分の時系列＋相平面を描画）
 # ============================================================
-if __name__ == "__main__":
 
-    # ---- 固定点を探索 ----
-    fps = find_fixed_points(par)
-    print(f"固定点の数: {len(fps)}")
+def run_and_plot(par_local, ax_ts, ax_pp, sigma_u, sigma_v,
+                 T_sim=50.0, dt=1e-4, seed=42, label_suffix=""):
+    """
+    1 条件分（パラメータ par_local）のシミュレーション＋描画を行う。
+    ax_ts : 時系列用 Axes
+    ax_pp : 相平面用 Axes
+    """
+    # ---- 固定点 ----
+    fps = find_fixed_points(par_local)
+    vPI3K_val = par_local["vPI3K"]
+    print(f"\n--- vPI3K = {vPI3K_val} ---")
+    print(f"  固定点の数: {len(fps)}")
     for i, fp in enumerate(fps):
-        print(f"  FP{i}: u = {fp[0]:.6f}, v = {fp[1]:.6f}")
+        print(f"    FP{i}: u = {fp[0]:.6f}, v = {fp[1]:.6f}")
 
-    # 安定固定点（静止状態）から出発
     u_rest, v_rest = fps[0]
-    print(f"\n安定固定点（静止状態）: u* = {u_rest:.6f}, v* = {v_rest:.6f}")
-    print(f"ノイズ強度: sigma_u = {sigma_u}, sigma_v = {sigma_v}")
+    print(f"  安定固定点（静止状態）: u* = {u_rest:.6f}, v* = {v_rest:.6f}")
 
     # ---- SDE シミュレーション ----
-    T_sim = 50.0     # 総時間（長めに取って複数回の発火を観察）
-    dt = 1e-4        # 時間刻み（tau_u=0.01 に対して十分小さく）
-    seed = 42        # 乱数シード（再現性。None にするとランダム）
+    print(f"  Euler–Maruyama: T = {T_sim}, dt = {dt}, steps = {int(T_sim/dt)}")
+    print("  計算中...")
 
-    print(f"\nEuler–Maruyama: T = {T_sim}, dt = {dt}, steps = {int(T_sim/dt)}")
-    print("計算中...")
-
-    t, u_t, v_t = euler_maruyama(u_rest, v_rest, par,
+    t, u_t, v_t = euler_maruyama(u_rest, v_rest, par_local,
                                   sigma_u, sigma_v,
                                   T=T_sim, dt=dt, seed=seed)
-    print(f"完了. 記録点数: {len(t)}")
-    print(f"u range: [{u_t.min():.4f}, {u_t.max():.4f}]")
-    print(f"v range: [{v_t.min():.4f}, {v_t.max():.4f}]")
+    print(f"  完了. 記録点数: {len(t)}")
+    print(f"  u range: [{u_t.min():.4f}, {u_t.max():.4f}]")
+    print(f"  v range: [{v_t.min():.4f}, {v_t.max():.4f}]")
 
     # ---- ヌルクライン ----
-    u_nc, v_u_nc, v_v_nc = compute_nullclines(par)
+    u_nc, v_u_nc, v_v_nc = compute_nullclines(par_local)
 
-    # ============================================================
-    # プロット
-    # ============================================================
-    fig = plt.figure(figsize=(14, 10))
-    gs = GridSpec(2, 1, figure=fig, height_ratios=[1, 1.2], hspace=0.30)
+    # ====== 時系列プロット ======
+    ax_ts.plot(t, u_t, color="tab:blue", linewidth=0.4, alpha=0.8, label="u (PIP3)")
+    ax_ts.plot(t, v_t, color="tab:orange", linewidth=0.4, alpha=0.8, label="v (membrane PTEN)")
+    ax_ts.axhline(u_rest, color="tab:blue", ls=":", alpha=0.5, linewidth=1,
+                  label=f"u* = {u_rest:.4f}")
+    ax_ts.axhline(v_rest, color="tab:orange", ls=":", alpha=0.5, linewidth=1,
+                  label=f"v* = {v_rest:.4f}")
+    ax_ts.set_xlabel("Time")
+    ax_ts.set_ylabel("Concentration")
+    ax_ts.set_title(f"vPI3K = {vPI3K_val}  "
+                    f"(σ_u = {sigma_u}, σ_v = {sigma_v}, seed = {seed})")
+    ax_ts.legend(fontsize=7, loc="upper right")
+    ax_ts.grid(True, alpha=0.3)
 
-    # ------ 上段: 時系列 ------
-    ax1 = fig.add_subplot(gs[0])
-    ax1.plot(t, u_t, color="tab:blue", linewidth=0.4, alpha=0.8, label="u (PIP3)")
-    ax1.plot(t, v_t, color="tab:orange", linewidth=0.4, alpha=0.8, label="v (membrane PTEN)")
-    ax1.axhline(u_rest, color="tab:blue", ls=":", alpha=0.5, linewidth=1,
-                label=f"u* = {u_rest:.4f}")
-    ax1.axhline(v_rest, color="tab:orange", ls=":", alpha=0.5, linewidth=1,
-                label=f"v* = {v_rest:.4f}")
-    ax1.set_xlabel("Time")
-    ax1.set_ylabel("Concentration")
-    ax1.set_title(f"Noise-driven excitable dynamics  "
-                  f"(σ_u = {sigma_u}, σ_v = {sigma_v}, seed = {seed})")
-    ax1.legend(fontsize=8, loc="upper right")
-    ax1.grid(True, alpha=0.3)
-
-    # ------ 下段: 相平面 ------
-    ax2 = fig.add_subplot(gs[1])
-
-    # ベクトル場
-    Ptot, Vtot = par["Ptot"], par["Vtot"]
+    # ====== 相平面プロット ======
+    Ptot, Vtot = par_local["Ptot"], par_local["Vtot"]
     Ng = 20
     uu = np.linspace(0.0, Ptot, Ng)
     vv = np.linspace(0.0, Vtot, Ng)
     UU, VV = np.meshgrid(uu, vv)
-    DU = du_dt(UU, VV, par)
-    DV = dv_dt(UU, VV, par)
+    DU = du_dt(UU, VV, par_local)
+    DV = dv_dt(UU, VV, par_local)
     speed = np.hypot(DU, DV)
     eps = 1e-12
     DU_n = DU / (speed + eps)
     DV_n = DV / (speed + eps)
-    ax2.quiver(UU, VV, DU_n, DV_n, color="0.85", scale=25, width=0.003, zorder=0)
+    ax_pp.quiver(UU, VV, DU_n, DV_n, color="0.85", scale=25, width=0.003, zorder=0)
 
-    # ヌルクライン
-    ax2.plot(u_nc, v_u_nc, label="u-nullcline (du/dt=0)", color="tab:green",
-             linewidth=2, zorder=2)
-    ax2.plot(u_nc, v_v_nc, label="v-nullcline (dv/dt=0)", color="tab:red",
-             linewidth=2, zorder=2)
+    ax_pp.plot(u_nc, v_u_nc, label="u-nullcline (du/dt=0)", color="tab:green",
+               linewidth=2, zorder=2)
+    ax_pp.plot(u_nc, v_v_nc, label="v-nullcline (dv/dt=0)", color="tab:red",
+               linewidth=2, zorder=2)
 
-    # 固定点
     for fp in fps:
-        ax2.plot(fp[0], fp[1], "ko", markersize=7, zorder=5)
-    ax2.plot([], [], "ko", markersize=7, label="fixed points")
+        ax_pp.plot(fp[0], fp[1], "ko", markersize=7, zorder=5)
+    ax_pp.plot([], [], "ko", markersize=7, label="fixed points")
 
-    # 確率的軌道（間引いて描画、透明度で密度感を出す）
-    ax2.plot(u_t, v_t, color="tab:blue", linewidth=0.2, alpha=0.3, zorder=3,
-             label="stochastic trajectory")
+    ax_pp.plot(u_t, v_t, color="tab:blue", linewidth=0.2, alpha=0.3, zorder=3,
+               label="stochastic trajectory")
+    ax_pp.plot(u_rest, v_rest, "o", color="tab:cyan", markersize=10, zorder=4,
+               markeredgecolor="k", markeredgewidth=0.8, label="start (rest state)")
 
-    # 出発点
-    ax2.plot(u_rest, v_rest, "o", color="tab:cyan", markersize=10, zorder=4,
-             markeredgecolor="k", markeredgewidth=0.8, label="start (rest state)")
+    ax_pp.set_xlabel("u (PIP3)")
+    ax_pp.set_ylabel("v (membrane-bound PTEN)")
+    ax_pp.set_title(f"Phase plane — vPI3K = {vPI3K_val}")
+    ax_pp.set_xlim(0.0, Ptot)
+    ax_pp.set_ylim(0.0, Vtot)
+    ax_pp.set_aspect("equal")
+    ax_pp.legend(fontsize=7, loc="upper right")
+    ax_pp.grid(True, alpha=0.3)
 
-    ax2.set_xlabel("u (PIP3)")
-    ax2.set_ylabel("v (membrane-bound PTEN)")
-    ax2.set_title("Phase plane — noise-driven excitations")
-    ax2.set_xlim(0.0, Ptot)
-    ax2.set_ylim(0.0, Vtot)
-    ax2.set_aspect("equal")
-    ax2.legend(fontsize=8, loc="upper right")
-    ax2.grid(True, alpha=0.3)
 
-    plt.suptitle("PIP3–PTEN excitable system with stochastic noise",
+# ============================================================
+# メイン
+# ============================================================
+if __name__ == "__main__":
+
+    T_sim = 50.0     # 総時間（長めに取って複数回の発火を観察）
+    dt = 1e-4        # 時間刻み（tau_u=0.01 に対して十分小さく）
+    seed = 42        # 乱数シード（再現性。None にするとランダム）
+
+    # ---- 2 条件のパラメータを用意 ----
+    par1 = dict(par)                              # オリジナル vPI3K = 1.274（興奮あり）
+    par2 = dict(par); par2["vPI3K"] = 0.75        # vPI3K = 0.75（興奮なし）
+
+    print(f"ノイズ強度: sigma_u = {sigma_u}, sigma_v = {sigma_v}")
+
+    # ---- Figure: 2 行 × 2 列 ----
+    fig = plt.figure(figsize=(20, 12))
+    gs = GridSpec(2, 2, figure=fig, height_ratios=[1, 1.2],
+                  hspace=0.35, wspace=0.30)
+
+    ax_ts1 = fig.add_subplot(gs[0, 0])                    # 左上: 時系列 (vPI3K=1.274)
+    ax_ts2 = fig.add_subplot(gs[0, 1], sharey=ax_ts1)     # 右上: 時系列 (vPI3K=0.75) — 縦軸共有
+    ax_pp1 = fig.add_subplot(gs[1, 0])                    # 左下: 相平面 (vPI3K=1.274)
+    ax_pp2 = fig.add_subplot(gs[1, 1], sharey=ax_pp1)     # 右下: 相平面 (vPI3K=0.75) — 縦軸共有
+
+    # ---- 左列: vPI3K = 1.274（オリジナル、興奮あり） ----
+    run_and_plot(par1, ax_ts1, ax_pp1, sigma_u, sigma_v,
+                 T_sim=T_sim, dt=dt, seed=seed)
+
+    # ---- 右列: vPI3K = 0.75（興奮なし） ----
+    run_and_plot(par2, ax_ts2, ax_pp2, sigma_u, sigma_v,
+                 T_sim=T_sim, dt=dt, seed=seed)
+
+    # 右列の縦軸ラベルを非表示にして見やすくする
+    ax_ts2.set_ylabel("")
+    ax_pp2.set_ylabel("")
+
+    plt.suptitle("PIP3–PTEN excitable system with stochastic noise — "
+                 "comparison of vPI3K values",
                  fontsize=14, y=0.98)
     plt.tight_layout(rect=[0, 0, 1, 0.96])
     plt.show()
