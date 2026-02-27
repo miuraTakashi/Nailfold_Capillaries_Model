@@ -319,7 +319,7 @@ def CoupledVesselPIP3Model(
 # 描画ヘルパー
 # ============================================================
 
-def plot_vessel(h, ax, title=""):
+def plot_vessel(h, ax, title="", fontsize=12):
     """血管断面の描画（fill 付き）"""
     x = np.arange(len(h[0]))
     for i in range(4):
@@ -328,7 +328,8 @@ def plot_vessel(h, ax, title=""):
     ax.fill_between(x, h[2], h[3], color="red", alpha=0.2)
     ax.set_ylim(-5, 5)
     ax.set_aspect("equal")
-    ax.set_title(title, fontsize=10)
+    ax.set_title(title, fontsize=fontsize)
+    ax.tick_params(axis="both", labelsize=fontsize - 1)
     ax.grid(True, alpha=0.3)
 
 def save_vessel_gif(res_left, res_right, save_path, *, fps=12, ylim=(-5, 5)):
@@ -413,7 +414,9 @@ def save_vessel_gif(res_left, res_right, save_path, *, fps=12, ylim=(-5, 5)):
             "GIF 保存には Pillow が必要です。`pip install pillow` を入れてください。"
         ) from e
 
-    ani.save(save_path, writer=writer)
+    # 文字列パスで渡す（Path のままだと保存に失敗することがある）
+    path_str = str(save_path)
+    ani.save(path_str, writer=writer)
     plt.close(fig)
 
 
@@ -458,8 +461,14 @@ if __name__ == "__main__":
     )
 
     # ============================================================
-    # 比較プロット: 3 行 × 2 列
+    # 比較プロット: 3 行 × 2 列（Word貼り付け用の文字サイズ）
     # ============================================================
+    fs_label = 20   # 軸ラベル・サブタイトル
+    fs_tick = 18    # 目盛り
+    fs_legend = 16  # 凡例
+    fs_panel = 20   # パネルラベル (a)(b)(c)
+    fs_suptitle = 22  # 全体タイトル
+
     fig = plt.figure(figsize=(18, 14))
     gs = GridSpec(3, 2, figure=fig, height_ratios=[1.2, 0.8, 0.8],
                   hspace=0.40, wspace=0.25)
@@ -468,9 +477,11 @@ if __name__ == "__main__":
     ax_v1 = fig.add_subplot(gs[0, 0])
     ax_v2 = fig.add_subplot(gs[0, 1], sharey=ax_v1)
     plot_vessel(res_disease["h_frames"][-1], ax_v1,
-                title=f"Disease (vPI3K=1.274): vessel at T={T_sim}")
+                title=f"Disease (vPI3K=1.274): vessel at T={T_sim}", fontsize=fs_label)
     plot_vessel(res_normal["h_frames"][-1], ax_v2,
-                title=f"Normal (vPI3K=0.75): vessel at T={T_sim}")
+                title=f"Normal (vPI3K=0.75): vessel at T={T_sim}", fontsize=fs_label)
+    ax_v1.text(-0.12, 1.02, "(a)", transform=ax_v1.transAxes,
+               fontsize=fs_panel, fontweight="bold", va="bottom")
 
     # ---- Row 2: PIP3 u(t) 時系列（界面1, 中央点） ----
     ax_u1 = fig.add_subplot(gs[1, 0])
@@ -480,21 +491,25 @@ if __name__ == "__main__":
                color="tab:blue", linewidth=0.3, alpha=0.8)
     ax_u1.axhline(res_disease["u_rest"], color="gray", ls=":", alpha=0.5,
                   label=f"u* = {res_disease['u_rest']:.4f}")
-    ax_u1.set_xlabel("Time")
-    ax_u1.set_ylabel("u (PIP3)")
-    ax_u1.set_title("Disease: PIP3 at h₁, x=mid")
-    ax_u1.legend(fontsize=8)
+    ax_u1.set_xlabel("Time", fontsize=fs_label)
+    ax_u1.set_ylabel("u (PIP3)", fontsize=fs_label)
+    ax_u1.set_title("Disease: PIP3 at h₁, x=mid", fontsize=fs_label)
+    ax_u1.tick_params(axis="both", labelsize=fs_tick)
+    ax_u1.legend(fontsize=fs_legend)
     ax_u1.grid(True, alpha=0.3)
 
     ax_u2.plot(res_normal["t_trace"], res_normal["u_trace"],
                color="tab:blue", linewidth=0.3, alpha=0.8)
     ax_u2.axhline(res_normal["u_rest"], color="gray", ls=":", alpha=0.5,
                   label=f"u* = {res_normal['u_rest']:.4f}")
-    ax_u2.set_xlabel("Time")
+    ax_u2.set_xlabel("Time", fontsize=fs_label)
     ax_u2.set_ylabel("")
-    ax_u2.set_title("Normal: PIP3 at h₁, x=mid")
-    ax_u2.legend(fontsize=8)
+    ax_u2.set_title("Normal: PIP3 at h₁, x=mid", fontsize=fs_label)
+    ax_u2.tick_params(axis="both", labelsize=fs_tick)
+    ax_u2.legend(fontsize=fs_legend)
     ax_u2.grid(True, alpha=0.3)
+    ax_u1.text(-0.12, 1.02, "(b)", transform=ax_u1.transAxes,
+               fontsize=fs_panel, fontweight="bold", va="bottom")
 
     # ---- Row 3: h1(t) 時系列（界面1, 中央点） ----
     ax_h1 = fig.add_subplot(gs[2, 0])
@@ -502,35 +517,47 @@ if __name__ == "__main__":
 
     ax_h1.plot(res_disease["t_trace"], res_disease["h_trace"],
                color="tab:red", linewidth=0.5, alpha=0.8)
-    ax_h1.set_xlabel("Time")
-    ax_h1.set_ylabel("h₁(x_mid, t)")
-    ax_h1.set_title("Disease: h₁ position")
+    ax_h1.set_xlabel("Time", fontsize=fs_label)
+    ax_h1.set_ylabel("h₁(x_mid, t)", fontsize=fs_label)
+    ax_h1.set_title("Disease: h₁ position", fontsize=fs_label)
+    ax_h1.tick_params(axis="both", labelsize=fs_tick)
     ax_h1.grid(True, alpha=0.3)
 
     ax_h2.plot(res_normal["t_trace"], res_normal["h_trace"],
                color="tab:red", linewidth=0.5, alpha=0.8)
-    ax_h2.set_xlabel("Time")
+    ax_h2.set_xlabel("Time", fontsize=fs_label)
     ax_h2.set_ylabel("")
-    ax_h2.set_title("Normal: h₁ position")
+    ax_h2.set_title("Normal: h₁ position", fontsize=fs_label)
+    ax_h2.tick_params(axis="both", labelsize=fs_tick)
     ax_h2.grid(True, alpha=0.3)
+    ax_h1.text(-0.12, 1.02, "(c)", transform=ax_h1.transAxes,
+               fontsize=fs_panel, fontweight="bold", va="bottom")
 
     fig.suptitle(
         "PIP3–PTEN driven vessel deformation model\n"
         f"Disease (vPI3K=1.274, excitable) vs Normal (vPI3K=0.75, non-excitable)  "
         f"[σ_c={sigma_c}, T={T_sim}]",
-        fontsize=13, y=0.99,
+        fontsize=fs_suptitle, y=0.99,
     )
     fig.subplots_adjust(top=0.90, hspace=0.45, wspace=0.25)
 
     # --- 保存 ---
     results_dir = Path("results")
     results_dir.mkdir(exist_ok=True)
-    save_path = results_dir / "coupled_vessel_pip3_comparison.jpg"
+    save_path = results_dir / "coupled_vessel_pip3_comparison2.jpg"
     fig.savefig(save_path, dpi=600, bbox_inches="tight")
     print(f"\n図を保存しました: {save_path}")
 
     # --- GIF ムービー保存（血管壁の時間発展） ---
-    gif_path = results_dir / "coupled_vessel_pip3_vessel_movie.gif"
-    save_vessel_gif(res_disease, res_normal, gif_path, fps=12, ylim=(-5, 5))
-    print(f"GIF ムービーを保存しました: {gif_path}")
+    gif_path = results_dir / "coupled_vessel_pip3_vessel_movie2.gif"
+    try:
+        save_vessel_gif(res_disease, res_normal, gif_path, fps=12, ylim=(-5, 5))
+        if gif_path.exists():
+            print(f"GIF ムービーを保存しました: {gif_path.absolute()}")
+        else:
+            print(f"警告: GIF の保存先を確認してください: {gif_path.absolute()}")
+    except Exception as e:
+        print(f"GIF 保存エラー: {e}")
+        import traceback
+        traceback.print_exc()
     plt.show()
